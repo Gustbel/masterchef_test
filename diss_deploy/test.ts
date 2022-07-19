@@ -7,6 +7,7 @@ import { BeethovenxMasterChef, BeethovenxToken, RewarderMock } from "../types"
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
 import { BigNumber } from "ethers"
 import hre from "hardhat"
+import { connect } from "http2";
 
 let kovan_addr = [
             "0x54afe4d1D7f030a3945e08a0Ca7351d5f4029907",
@@ -20,9 +21,8 @@ let kovan_addr = [
 
 async function main() {
 
-    console.log ("    -- Masterchef TEST --");
+    console.log ("    -- DISS Masterchef TEST --");
 
-    let beets: BeethovenxToken
     let owner: SignerWithAddress
     let dev: SignerWithAddress
     let treasury: SignerWithAddress
@@ -58,43 +58,98 @@ async function main() {
 
     // Deploy Contract Token
     console.log ("\n - Deploying BeethovenxToken contract...");
-    beets = await deployContract("BeethovenxToken", [])
-    console.log ("\t BeethovenxToken contract deployed at:", beets.address);
+    const Pools = await ethers.getContractFactory("BeethovenxToken", owner);
+    let pools = await Pools.deploy();
+    console.log ("\t BeethovenxToken contract deployed at:", pools.address);
+    const actualPoolsOwnerAddress_old = await pools.owner()
+    console.log ("\t BeethovenxToken contract owner:", actualPoolsOwnerAddress_old);
 
     // Mint tokens to dev
     console.log ("\n - Minting tokens to dev...");
     const amountToMint = bn(1000)
-    await beets.mint(dev.address, amountToMint)
+    let tx = await pools.mint(dev.address, amountToMint)
     console.log ("\t Dev has", amountToMint.toString() , "tokens");
 
     // Deploy Contract MasterChef
-    console.log ("\n - Deploying MasterChef contract...");
-    const startBlock = 521
+    const startBlock = tx.blockNumber;
+    console.log ("ActualBlock:", tx.blockNumber);
+    console.log ("\n - Deploying MasterChef contract in block "+ startBlock + " with 6 POOLS reward per Block...");
 
-    const beetsPerBlock = bn(6)
+    const poolsPerBlock = bn(6)
 
-    const chef = await deployChef(beets.address, treasury.address, beetsPerBlock, startBlock)
+    const Chef = await ethers.getContractFactory("BeethovenxMasterChef", owner);
+    let chef = await Chef.deploy(pools.address, treasury.address, poolsPerBlock, startBlock);
     console.log ("\t MasterChef contract deployed at:", chef.address);
-    await beets.transferOwnership(chef.address)
+    await pools.transferOwnership(chef.address)
     console.log ("\n - BeethovenxToken contract ownership transferred to MasterChef contract");
 
     // Fetch MC contract properties
-    const actualBeetsAddress = await chef.beets()
+    const actualPoolsAddress = await chef.beets()
     const actualTreasuryAddress = await chef.treasuryAddress()
-    const actualBeetsOwnerAddress = await beets.owner()
+    const actualPoolsOwnerAddress = await pools.owner()
     const actualTreasuryPercentage = await chef.TREASURY_PERCENTAGE()
-    const actualBeetsPerBlock = await chef.beetsPerBlock()
+    const actualPoolsPerBlock = await chef.beetsPerBlock()
 
     console.log("\n - Masterchef contract properties:")
-    console.log("\t\t - Actual BeethovenxToken contract address:", actualBeetsAddress);
+    console.log("\t\t - Actual BeethovenxToken contract address:", actualPoolsAddress);
     console.log("\t\t - Actual Treasury contract address:", actualTreasuryAddress);
-    console.log("\t\t - Actual BeethovenxToken contract owner address:", actualBeetsOwnerAddress);
+    console.log("\t\t - Actual BeethovenxToken contract owner address:", actualPoolsOwnerAddress);
     console.log("\t\t - Actual Treasury percentage:", actualTreasuryPercentage.toString());
-    console.log("\t\t - Actual BeethovenxToken contract per block:", actualBeetsPerBlock.toString());
+    console.log("\t\t - Actual BeethovenxToken contract per block:", actualPoolsPerBlock.toString());
+
+    // Create LP ERC20s
+    console.log ("\n - Deploying 2 ERC20s (LPs)...");
+
+    const Lp1Token = await ethers.getContractFactory('ERC20Mock', owner);
+    const lp1Token = await Lp1Token.deploy("Lp1Token", "LP1", 0, 100);
+ 
+    const Lp2Token = await ethers.getContractFactory('ERC20Mock', owner);
+    const lp2Token = await Lp2Token.deploy("Lp2Token", "LP2", 0, 100);
+
+    console.log (`\t LP Token 1 deployed at: ${lp1Token.address}\n\t    and LP Token 2 deployed at: ${lp2Token.address}`);
+    let balance_owner = await lp1Token.balanceOf(owner.address)
+    console.log ("\t Owner has " + balance_owner.toString() + " LPs");
+
+    // Adding LP ERC20s to MC contract
+    console.log (`\n - Adding LP ERC20s to MasterChef contract at ` + tx.blockNumber + ` Block ...`);
+    await chef.add(10, lp1Token.address, ethers.constants.AddressZero)
+    console.log("\t LP Token 1 added to MasterChef contract");
+    await chef.add(10, lp2Token.address, ethers.constants.AddressZero)
+    console.log("\t LP Token 2 added to MasterChef contract");
+    let poolLengt = await chef.poolLength()
+    console.log ("\t - Masterchef Pool quantity length:", poolLengt.toString())
+
+    // Alice make a deposit
+    console.log ("\n - Alice makes a deposit...");
+
+    console.log ("\t - Sending 10 LPs to Alice...");
+    await lp1Token.connect(owner).transfer(alice.address, 10)
+
+    console.log (`\t - Alice Deposit 10 tokens in Masterchef at` + tx.blockNumber + `Block ...`);
+    await lp1Token.connect(alice).approve(chef.address, 10)
+    const depositionPoint = await chef.connect(alice).deposit(0, 10, alice.address)
+
+    console.log("\t - We will see Alice's rewards...\n\t\tWaiting 9 blocks..........");
+    await advanceBlockTo(depositionPoint.blockNumber! + 9)
+    tx = await chef.connect(owner).updatePool(0)
+    let alicePendingPools = await chef.pendingBeets(0, alice.address)
+    console.log (`\t\t In Block ` + tx.blockNumber + `. Alice has ${alicePendingPools.toString()} pending pools`);
 
 
+    console.log("\t - Now we wait 5 blocks more..........");
+    tx = await chef.connect(owner).updatePool(0)
+    alicePendingPools = await chef.pendingBeets(0, alice.address)
+    console.log (`\t\t In Block ` + tx.blockNumber + `. Alice has ${alicePendingPools.toString()} pending pools`);
 
+    console.log("\t - Alice make a Harvest of the rewards...");
+    let alice_pools_balance = await pools.balanceOf(alice.address)
+    console.log (`\t\t POOLS Tokens Alice balance (before the harvest): ${alice_pools_balance.toString()}`);
+    
+    console.log("\t\t - Harvesting...");
+    tx = await chef.connect(alice).harvest(0, alice.address)
 
+    alice_pools_balance = await pools.balanceOf(alice.address)
+    console.log (`\t\t POOLS Tokens Alice balance (AFTER the harvest): ${alice_pools_balance.toString()}`);
 
     console.log("\nDONE");
 }

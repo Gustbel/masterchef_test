@@ -29,6 +29,10 @@ const accounts = [
                 `0xe3809d782c7f60f26e05d6f5b97825afdf6adf8c55b1e1362e0cf9a6a2758c4c`
               ];
 
+const INFURA_KOVAN_URL = 'https://kovan.infura.io/v3/025d7ebf96134012b954d0491f384c53';
+const PRIVATE_KEY = '7d09515c15886e11ee191c08871a10c29b76a7ad009684a0822d6f8baa173456';
+
+
 const config: HardhatUserConfig = {
   abiExporter: {
     path: "./abi",
