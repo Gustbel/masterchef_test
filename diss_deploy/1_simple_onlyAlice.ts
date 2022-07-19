@@ -114,8 +114,8 @@ async function main() {
     console.log (`\n - Adding LP ERC20s to MasterChef contract at ` + tx.blockNumber + ` Block ...`);
     await chef.add(10, lp1Token.address, ethers.constants.AddressZero)
     console.log("\t LP Token 1 added to MasterChef contract");
-    await chef.add(10, lp2Token.address, ethers.constants.AddressZero)
-    console.log("\t LP Token 2 added to MasterChef contract");
+    // await chef.add(10, lp2Token.address, ethers.constants.AddressZero)
+    // console.log("\t LP Token 2 added to MasterChef contract");
     let poolLengt = await chef.poolLength()
     console.log ("\t - Masterchef Pool quantity length:", poolLengt.toString())
 
@@ -129,27 +129,29 @@ async function main() {
     await lp1Token.connect(alice).approve(chef.address, 10)
     const depositionPoint = await chef.connect(alice).deposit(0, 10, alice.address)
 
-    console.log("\t - We will see Alice's rewards...\n\t\tWaiting 9 blocks..........");
-    await advanceBlockTo(depositionPoint.blockNumber! + 9)
+    console.log("\t - We will see Alice's rewards...\n\t\tWaiting 10 blocks..........");
+    await advanceBlockTo(depositionPoint.blockNumber! + 10)
     tx = await chef.connect(owner).updatePool(0)
     let alicePendingPools = await chef.pendingBeets(0, alice.address)
-    console.log (`\t\t In Block ` + tx.blockNumber + `. Alice has ${alicePendingPools.toString()} pending pools`);
+    console.log (`\t\t In Block ` + tx.blockNumber + `. Alice has ${alicePendingPools/1e18} pending pools`);
 
 
-    console.log("\t - Now we wait 5 blocks more..........");
+    console.log("\t - Now we wait 1 blocks more..........");
     tx = await chef.connect(owner).updatePool(0)
-    alicePendingPools = await chef.pendingBeets(0, alice.address)
-    console.log (`\t\t In Block ` + tx.blockNumber + `. Alice has ${alicePendingPools.toString()} pending pools`);
+    let alicePendingPools_1block = await chef.pendingBeets(0, alice.address)
+    console.log (`\t\t In Block ` + tx.blockNumber + `. Alice has ${alicePendingPools_1block/1e18} pending pools`);
+
+    console.log("\n\t ALICE GENERATE A REWARD OF: " + (alicePendingPools_1block/1e18 - alicePendingPools/1e18) + " POOLS per block\n");
 
     console.log("\t - Alice make a Harvest of the rewards...");
     let alice_pools_balance = await pools.balanceOf(alice.address)
-    console.log (`\t\t POOLS Tokens Alice balance (before the harvest): ${alice_pools_balance.toString()}`);
+    console.log (`\t\t POOLS Tokens Alice balance (before the harvest): ${alice_pools_balance/1e18}`);
     
     console.log("\t\t - Harvesting...");
     tx = await chef.connect(alice).harvest(0, alice.address)
 
     alice_pools_balance = await pools.balanceOf(alice.address)
-    console.log (`\t\t POOLS Tokens Alice balance (AFTER the harvest): ${alice_pools_balance.toString()}`);
+    console.log (`\t\t POOLS Tokens Alice balance (AFTER the harvest): ${alice_pools_balance/1e18}`);
 
     console.log("\nDONE");
 }

@@ -7,7 +7,7 @@
 yarn install
 ```
 
-### Run Test
+### Run Test 1_simple_onlyAlice (just one Pool - just one user staking (Alice))
 ```
-npx hardhat run diss_deploy/test.ts --network hardhat
+npx hardhat run diss_deploy/1_simple_onlyAlice.ts 
 ```
