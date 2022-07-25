@@ -178,6 +178,7 @@ async function main() {
     await advanceTime(duration.hours("11").toNumber())
     // and execute it
     await operator.connect(owner).commitFarmChanges(etaFirst, 1)
+    await rewarder1.add(0, 100)
     await advanceTime(duration.hours("11").toNumber())
 
 
@@ -227,24 +228,9 @@ async function main() {
 
 
 
-
-
-
     // Modify the pools allocations
     console.log ("\n - Now we modify the pools allocations. Pool1 change from 10 to 40 an add Rewarder1. Pool2 change from 10 to 20");
-    // const firstEtaModification = await createEta()
-    // await operator.connect(owner).stageFarmModifications(
-    //     [
-    //       {
-    //         allocationPoints: 40,
-    //         pid: 0,
-    //         rewarder: rewarder1.address,
-    //         overwriteRewarder: true,
-    //       },
-    //     ],
-    //     firstEtaModification
-    //   )
-    
+
     const secondEtaModification = await createEta()
     await operator.connect(owner).stageFarmModifications(
         [
@@ -258,12 +244,11 @@ async function main() {
         secondEtaModification
     )
 
-//    await operator.connect(owner).commitFarmChanges(firstEtaModification, 0)
     await operator.connect(owner).commitFarmChanges(secondEtaModification, 0)
     await operator.queuedFarmChangeEtas()
     await advanceTime(duration.hours("11").toNumber())
 
-//    await operator.connect(owner).commitFarmChanges(firstEtaModification, 1)
+
     await operator.connect(owner).commitFarmChanges(secondEtaModification, 1)
     await operator.queuedFarmChangeEtas()
     await advanceTime(duration.hours("11").toNumber())
@@ -288,15 +273,8 @@ async function main() {
     console.log("\t and BOB GENERATE A REWARD OF: " + (bobPendingPools_1block/1e18 - bobPendingPools/1e18) + " POOLS per block\n");
 
 
-    await advanceTime(duration.hours("10").toNumber())
-
-    
     let alicePendingRTok = await rewarder1.pendingTokens(0, alice.address, 0)
     console.log("\t - Alice has " + alicePendingRTok[1] + " pending RTok");
-    
-
-
-
 
 
 
@@ -316,15 +294,10 @@ async function main() {
 
     alice_pools_balance = await pools.balanceOf(alice.address)
     alicer_rtok_balance = await rewardToken.balanceOf(alice.address)
-    console.log (`\t\t POOLS Tokens balance in ALICE wallet (AFTER the harvest): ${alice_pools_balance/1e18} and RTok balance: ${alicer_rtok_balance/1e18}`);
+    console.log (`\t\t POOLS Tokens balance in ALICE wallet (AFTER the harvest): ${alice_pools_balance/1e18} and RTok balance: ${alicer_rtok_balance}`);
     bob_pools_balance = await pools.balanceOf(bob.address)
     console.log (`\t\t POOLS Tokens balance in BOB wallet (AFTER the harvest): ${bob_pools_balance/1e18}`);
 
-
-
-
-
-    
 
     totalSupply = await pools.totalSupply()
     let totalSupplyRewardToken = await rewardToken.totalSupply()
