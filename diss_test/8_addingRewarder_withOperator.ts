@@ -137,34 +137,12 @@ async function main() {
     // console.log ("\t Rewarder contract deployed at:", rewarderFactory.address);
 
 
-    // Deploying RTok TOKEN (FOR REWARDER)
-    console.log ("\n\t - Deploying RewardToken (RTok)...");
-    const RewardToken = await ethers.getContractFactory('ERC20Mock', owner);
-    const rewardToken = await RewardToken.deploy("RewardToken", "RTok", 0, bn(10_000));
-
-    console.log (`\t - Address RewardToken: ` + rewardToken.address);
-
-    console.log ("\n\t - Deploying Rewarder1 (*TimeBasedMasterChefRewarder* contract)...");
-    const Rewarder1 = await ethers.getContractFactory("TimeBasedMasterChefRewarder", owner);
-    const rewarder1 = await Rewarder1.deploy(chef.address)
-    console.log (`\t - Rewarder1 deployed, address: ` + rewarder1.address);
-
-    // Configure the rewarder
-    await rewarder1.connect(owner).initializeRewardToken(rewardToken.address)
-    console.log (`\t\t - Rewarder Token Set (RTok)`);
-    let rewardsPerSecond = 5;
-    await rewarder1.connect(owner).setRewardPerSecond(rewardsPerSecond);
-    console.log (`\t\t - Rewarder RewardPerSecond Set (${rewardsPerSecond} RTok per second)`);
-    await rewardToken.connect(owner).transfer(rewarder1.address, bn(10_000))
-
-
-
     // Operator Operator Add Pools with allocation points
     console.log(`\t\t Operator Add Pools with allocation points:`);
     const etaFirst = await createEta()
     await operator.connect(owner).stageFarmAdditions(
       [
-        { lpToken: lp1Token.address, allocationPoints: 10, rewarder: rewarder1.address },
+        { lpToken: lp1Token.address, allocationPoints: 10, rewarder: ethers.constants.AddressZero },
         { lpToken: lp2Token.address, allocationPoints: 10, rewarder: ethers.constants.AddressZero },
       ],
       etaFirst
@@ -227,23 +205,44 @@ async function main() {
 
 
 
+    // Deploying fPOLL TOKEN (FOR REWARDER)
+    console.log ("\n\t - Deploying RewardToken (RTok)...");
+    const RewardToken = await ethers.getContractFactory('ERC20Mock', owner);
+    const rewardToken = await RewardToken.deploy("RewardToken", "RTok", 0, bn(10_000));
+
+    console.log (`\t - Address RewardToken: ` + rewardToken.address);
+
+    console.log ("\n\t - Deploying Rewarder1 (*TimeBasedMasterChefRewarder* contract)...");
+    const Rewarder1 = await ethers.getContractFactory("TimeBasedMasterChefRewarder", owner);
+    const rewarder1 = await Rewarder1.deploy(chef.address)
+    console.log (`\t - Rewarder1 deployed, address: ` + rewarder1.address);
+
+    // Configure the rewarder
+    await rewarder1.connect(owner).initializeRewardToken(rewardToken.address)
+    console.log (`\t\t - Rewarder Token Set (RTok)`);
+    let rewardsPerSecond = 5;
+    await rewarder1.connect(owner).setRewardPerSecond(rewardsPerSecond);
+    console.log (`\t\t - Rewarder RewardPerSecond Set (${rewardsPerSecond} RTok per second)`);
+    await rewardToken.connect(owner).transfer(rewarder1.address, bn(10_000))
+
+
 
 
 
     // Modify the pools allocations
     console.log ("\n - Now we modify the pools allocations. Pool1 change from 10 to 40 an add Rewarder1. Pool2 change from 10 to 20");
-    // const firstEtaModification = await createEta()
-    // await operator.connect(owner).stageFarmModifications(
-    //     [
-    //       {
-    //         allocationPoints: 40,
-    //         pid: 0,
-    //         rewarder: rewarder1.address,
-    //         overwriteRewarder: true,
-    //       },
-    //     ],
-    //     firstEtaModification
-    //   )
+    const firstEtaModification = await createEta()
+    await operator.connect(owner).stageFarmModifications(
+        [
+          {
+            allocationPoints: 40,
+            pid: 0,
+            rewarder: rewarder1.address,
+            overwriteRewarder: true,
+          },
+        ],
+        firstEtaModification
+      )
     
     const secondEtaModification = await createEta()
     await operator.connect(owner).stageFarmModifications(
@@ -258,12 +257,12 @@ async function main() {
         secondEtaModification
     )
 
-//    await operator.connect(owner).commitFarmChanges(firstEtaModification, 0)
+    await operator.connect(owner).commitFarmChanges(firstEtaModification, 0)
     await operator.connect(owner).commitFarmChanges(secondEtaModification, 0)
     await operator.queuedFarmChangeEtas()
     await advanceTime(duration.hours("11").toNumber())
 
-//    await operator.connect(owner).commitFarmChanges(firstEtaModification, 1)
+    await operator.connect(owner).commitFarmChanges(firstEtaModification, 1)
     await operator.connect(owner).commitFarmChanges(secondEtaModification, 1)
     await operator.queuedFarmChangeEtas()
     await advanceTime(duration.hours("11").toNumber())
@@ -289,7 +288,6 @@ async function main() {
 
 
     await advanceTime(duration.hours("10").toNumber())
-
     
     let alicePendingRTok = await rewarder1.pendingTokens(0, alice.address, 0)
     console.log("\t - Alice has " + alicePendingRTok[1] + " pending RTok");
