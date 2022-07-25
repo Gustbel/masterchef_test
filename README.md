@@ -11,7 +11,7 @@ yarn install
 
 ### Run Tests
 ```
-npx hardhat run diss_deploy/xxxxxxx.ts 
+npx hardhat run diss_test/xxxxxxx.ts 
 ```
 
 ### Tests Details
