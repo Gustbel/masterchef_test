@@ -130,6 +130,13 @@ async function main() {
     console.log (`\t\t Total POOLS ERC20 Tokens supply: ${totalSupply/1e18}`);
 
 
+    // // Deploy Rewarder Factory
+    // console.log ("\n - Deploying Rewarder contract...");
+    // const RewarderFactory = await ethers.getContractFactory("MasterChefRewarderFactory", owner);
+    // let rewarderFactory = await RewarderFactory.deploy(owner.address, chef.address, owner.address);
+    // console.log ("\t Rewarder contract deployed at:", rewarderFactory.address);
+
+
     // Operator Operator Add Pools with allocation points
     console.log(`\t\t Operator Add Pools with allocation points:`);
     const etaFirst = await createEta()
@@ -197,16 +204,41 @@ async function main() {
     console.log("\t and BOB GENERATE A REWARD OF: " + (bobPendingPools_1block/1e18 - bobPendingPools/1e18) + " POOLS per block\n");
 
 
+
+    // Deploying fPOLL TOKEN (FOR REWARDER)
+    console.log ("\n\t - Deploying RewardToken (RTok)...");
+    const RewardToken = await ethers.getContractFactory('ERC20Mock', owner);
+    const rewardToken = await RewardToken.deploy("RewardToken", "RTok", 0, bn(10_000));
+
+    console.log (`\t - Address RewardToken: ` + rewardToken.address);
+
+    console.log ("\n\t - Deploying Rewarder1 (*TimeBasedMasterChefRewarder* contract)...");
+    const Rewarder1 = await ethers.getContractFactory("TimeBasedMasterChefRewarder", owner);
+    const rewarder1 = await Rewarder1.deploy(chef.address)
+    console.log (`\t - Rewarder1 deployed, address: ` + rewarder1.address);
+
+    // Configure the rewarder
+    await rewarder1.connect(owner).initializeRewardToken(rewardToken.address)
+    console.log (`\t\t - Rewarder Token Set (RTok)`);
+    let rewardsPerSecond = 5;
+    await rewarder1.connect(owner).setRewardPerSecond(rewardsPerSecond);
+    console.log (`\t\t - Rewarder RewardPerSecond Set (${rewardsPerSecond} RTok per second)`);
+    await rewardToken.connect(owner).transfer(rewarder1.address, bn(10_000))
+
+
+
+
+
     // Modify the pools allocations
-    console.log ("\n - Now we modify the pools allocations. Pool1 change from 10 to 40. Pool2 change from 10 to 20");
+    console.log ("\n - Now we modify the pools allocations. Pool1 change from 10 to 40 an add Rewarder1. Pool2 change from 10 to 20");
     const firstEtaModification = await createEta()
     await operator.connect(owner).stageFarmModifications(
         [
           {
             allocationPoints: 40,
             pid: 0,
-            rewarder: ethers.constants.AddressZero,
-            overwriteRewarder: true,
+            rewarder: rewarder1.address,
+            overwriteRewarder: false,
           },
         ],
         firstEtaModification
@@ -236,8 +268,6 @@ async function main() {
     await advanceTime(duration.hours("11").toNumber())
 
 
-    console.log("Listo Perro\n\n")
-
 
     console.log("\t - Waiting 10 blocks..........\n\t\tWe will see the rewards...");
     await advanceBlockTo(depositionPoint.blockNumber! + 10)
@@ -253,15 +283,31 @@ async function main() {
     bobPendingPools_1block = await chef.pendingBeets(1, bob.address)
     console.log (`\t\t In Block ` + tx.blockNumber + `. Alice has ${alicePendingPools_1block/1e18} pending pools and Bob has ${bobPendingPools_1block/1e18} pending pools`);
 
-    console.log("\n\t ALICE GENERATE A REWARD OF: " + (alicePendingPools_1block/1e18 - alicePendingPools/1e18) + " POOLS per block");
+    console.log("\n\tNOW ALICE GENERATE A REWARD OF: " + (alicePendingPools_1block/1e18 - alicePendingPools/1e18) + " POOLS per block");
     console.log("\t and BOB GENERATE A REWARD OF: " + (bobPendingPools_1block/1e18 - bobPendingPools/1e18) + " POOLS per block\n");
 
 
 
+    
+    let alicePendingRTok = await rewarder1.pendingTokens(0, alice.address, 0)
+    console.log("\t - Alice has " + alicePendingRTok[1] + " pending RTok");
+    
 
-    console.log("\t - Alice and Bob make a Harvest of the rewards...");
+
+
+  //   console.log ("\n - Deploying BeethovenxToken contract...");
+
+  //   let fPOOLSToken = await FPOOLSToken.deploy();
+  //   console.log ("\t BeethovenxToken contract deployed at:", fPOOLSToken.address);
+
+
+
+
+
+    console.log("\n\n\t - Alice and Bob make a Harvest of the rewards...");
     let alice_pools_balance = await pools.balanceOf(alice.address)
-    console.log (`\t\t POOLS Tokens balance in ALICE wallet (before the harvest): ${alice_pools_balance/1e18}`);
+    let alicer_rtok_balance = await rewardToken.balanceOf(alice.address)
+    console.log (`\t\t POOLS Tokens balance in ALICE wallet (before the harvest): ${alice_pools_balance/1e18}, and RTok balance: ${alicer_rtok_balance/1e18}`);
     let bob_pools_balance = await pools.balanceOf(bob.address)
     console.log (`\t\t POOLS Tokens balance in BOB wallet (before the harvest): ${bob_pools_balance/1e18}`);
 
@@ -273,7 +319,8 @@ async function main() {
 
 
     alice_pools_balance = await pools.balanceOf(alice.address)
-    console.log (`\t\t POOLS Tokens balance in ALICE wallet (AFTER the harvest): ${alice_pools_balance/1e18}`);
+    alicer_rtok_balance = await rewardToken.balanceOf(alice.address)
+    console.log (`\t\t POOLS Tokens balance in ALICE wallet (AFTER the harvest): ${alice_pools_balance/1e18} and RTok balance: ${alicer_rtok_balance/1e18}`);
     bob_pools_balance = await pools.balanceOf(bob.address)
     console.log (`\t\t POOLS Tokens balance in BOB wallet (AFTER the harvest): ${bob_pools_balance/1e18}`);
 
@@ -284,9 +331,9 @@ async function main() {
     
 
     totalSupply = await pools.totalSupply()
-    //let totalSupplyfPOOLS = await fPOOLSToken.totalSupply()
+    let totalSupplyRewardToken = await rewardToken.totalSupply()
     console.log (`\t\t Total POOLS ERC20 Tokens supply: ${totalSupply/1e18}`);
-    //console.log (`\t\t Total TOKEN ERC20 Tokens supply: ${totalSupplyfPOOLS/1e18}`);
+    console.log (`\t\t Total TOKEN ERC20 Tokens supply: ${totalSupplyRewardToken/1e18}`);
 
     console.log("\nDONE");
 }
