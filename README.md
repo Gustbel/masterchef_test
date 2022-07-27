@@ -7,6 +7,11 @@
 yarn install
 ```
 
+### Deploy Contracts
+#### Deploy in Kovan
+```
+npx hardhat run diss_deploy/deploy_all.ts --network kovanDISS
+```
 
 
 ### Run Tests
@@ -14,7 +19,7 @@ yarn install
 npx hardhat run diss_test/xxxxxxx.ts 
 ```
 
-### Tests Details
+#### Tests Details
 - *test1* - 1 pool con Alice recibiendo todo el reward
 - *test2* - 2 pools mismo peso, Bob se suma mas tarde que alice, reciben la misma cantidad de reward
 - *test3* - 2 pools diferente peso, para comprobar la diferencia de reward entre Alice y Bob

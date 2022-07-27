@@ -63,19 +63,15 @@ const config: HardhatUserConfig = {
         url: "https://kovan.infura.io/v3/025d7ebf96134012b954d0491f384c53",
       },
     },
+    kovanDISS: {
+      url: INFURA_KOVAN_URL,
+      accounts: [`0x${PRIVATE_KEY}`]
+    },
     localhost: {
       live: false,
       saveDeployments: true,
       tags: ["local"],
     },
-    // kovanFork:{
-    //   url: 'http://127.0.0.1:8545',
-    //   chainId: 31337,
-    //   saveDeployments: true,
-    //   forking:{
-    //     url: "https://kovan.infura.io/v3/025d7ebf96134012b954d0491f384c53",
-    //   },
-    // },
     rinkeby: {
       url: `https://rinkeby.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
